@@ -1,6 +1,6 @@
 # Rice Bar
 
-[![Tip with X Money](tip-with-x-money.svg)](https://x.com/scottito22)
+**Disclaimer: I asked Grok to update (this repo)[https://github.com/jcarcinogen/omarchy-rice-bar] to be compatible with Omarchy 4.0.4, since in that version it uses a sandboxing method for plugins that makes omarchy-rice-bar no longer work. It did update it, and it does now works and I use it, but use at your own risk.**
 
 Theme-aware visual presets for the **stock Omarchy Quattro bar**.
 
@@ -11,6 +11,8 @@ Rice Bar follows one rule:
 > **Own the chrome, not the widgets.**
 
 It keeps `omarchy.bar` active and leaves Omarchy's official logo, workspaces, indicators, clock, tray, panels, gestures, keyboard navigation, drag/reorder behavior, multi-monitor routing, and shell configuration under Omarchy's control. A passive bottom-layer surface draws behind the live stock widgets and never receives pointer or keyboard input.
+
+**0.5.0** is rebuilt for **Omarchy 4.0.3+ / 4.0.4**. The 4.0.3 plugin sandbox stopped handing third-party plugins the live `Bar` QObject, which is why 0.4.2 painted nothing (`bar.moduleSlots` and transparency props are gone from the scoped facade). This release probes widget geometry from the host object tree the widget still lives in, reads settings from `shell.barConfig`, and toggles stock-bar transparency through the public `omarchy bar transparent` CLI.
 
 ## Styles
 
@@ -55,7 +57,16 @@ All Rice Bar styles bind to Omarchy's active `Color.bar.background`, `Color.bar.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/jcarcinogen/omarchy-rice-bar.git --enable --yes
+omarchy plugin add https://github.com/HelloJesusBeloved/omarchy-rice-bar.git --enable
+```
+
+From a downloaded 0.5.0 folder:
+
+```bash
+mkdir -p ~/.config/omarchy/plugins/io.github.jcarcinogen.rice-bar
+cp -a ./io.github.jcarcinogen.rice-bar/. ~/.config/omarchy/plugins/io.github.jcarcinogen.rice-bar/
+omarchy-shell shell rescanPlugins
+omarchy-restart-shell
 ```
 
 The rice-bowl button is added to the right section. Select it to open Rice Bar settings.
@@ -69,7 +80,7 @@ The settings panel exposes:
 - Corner radius
 - Breathing room
 - Accent border
-- A **Restore _Style_ defaults** button for the selected style
+- A **Restore Style defaults** button for the selected style
 
 Each style starts with appearance values chosen for its visual inspiration. Slider and border changes are saved only for the selected style; switching away and back restores that style's saved values. The restore button clears only that style's customization and reloads its built-in values.
 
@@ -98,9 +109,10 @@ Settings remain inline on Rice Bar's entry in `~/.config/omarchy/shell.json`; no
 
 ## Compatibility
 
-Developed and live-tested on:
+Developed for:
 
-- Omarchy `4.0.1-1`
+- Omarchy `4.0.3-1` and `4.0.4-1` (the sandboxed plugin API)
+- Still uses the 4.0.1 live-bar methods when they exist
 - Quickshell `0.3.1-1`
 - Stock `omarchy.bar`
 - Top, bottom, left, and right bar positions
@@ -109,6 +121,17 @@ Developed and live-tested on:
 Rice Bar is deliberately an **Option A stock-bar overlay**, not a `bar` replacement. The active bar ID remains `omarchy.bar`.
 
 No extra packages. No sudo or pkexec is required.
+
+### What 4.0.3+ took away, and how 0.5.0 replaces it
+
+| Broken 0.4.2 path | 4.0.4 facade | 0.5.0 replacement |
+|---|---|---|
+| `bar.moduleSlots` / `bar.slotWindow()` | Absent on `PluginBarStateApi` | Bar-widget walks the host object tree (Omarchy's own API comment: visual plugins share the host tree) |
+| `bar.transparent` / `setRequestedTransparency` | Read-only mirror or missing | `omarchy bar transparent`, restored on uninstall |
+| `shell.shellConfig` | Undefined | `shell.barConfig` via `RiceModel.configFromShell` |
+| `bar.summonBarWidget` | Missing | `shell.summon` / `hide` / `toggle` |
+
+Stock widget text color can no longer be rewritten (`transparentForeground` is gone). Chrome therefore stays on `Color.bar.background` so official widget colors remain readable.
 
 ## Behavior preserved
 

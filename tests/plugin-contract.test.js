@@ -13,6 +13,7 @@ test('manifest declares a stock-bar overlay with selectable presets', () => {
   const manifest = JSON.parse(source('manifest.json'));
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.id, 'io.github.jcarcinogen.rice-bar');
+  assert.equal(manifest.version, '0.5.0');
   assert.deepEqual(manifest.kinds, ['service', 'bar-widget']);
   assert.equal(manifest.entryPoints.service, 'Service.qml');
   assert.equal(manifest.entryPoints.barWidget, 'BarWidget.qml');
@@ -28,24 +29,32 @@ test('manifest declares a stock-bar overlay with selectable presets', () => {
 test('service remains an Option A overlay instead of a replacement bar', () => {
   const manifest = JSON.parse(source('manifest.json'));
   assert.equal(manifest.kinds.includes('bar'), false);
-  const service = source('Service.qml');
-  assert.match(service, /WlrLayer\.Bottom/);
-  assert.match(service, /mask:\s*Region\s*\{\s*\}/);
-  assert.match(service, /debugBarGeometry|moduleSlots/);
-  assert.match(service, /Color\.bar\.background/);
-  assert.match(service, /Color\.accent/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /WlrLayer\.Bottom/);
+  assert.match(chrome, /mask:\s*Region\s*\{\s*\}/);
+  assert.match(chrome, /Color\.bar\.background/);
+  assert.match(chrome, /Color\.accent/);
 });
 
 test('service imports the Quickshell modules required by its runtime types', () => {
   const service = source('Service.qml');
   assert.match(service, /import Quickshell\.Io/);
-  assert.match(service, /import Quickshell\.Wayland/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /import Quickshell\.Wayland/);
+});
+
+test('4.0.4 settings are read from barConfig when shellConfig is absent', () => {
+  const service = source('Service.qml');
+  assert.match(service, /RiceModel\.configFromShell\(shell\)/);
+  assert.match(service, /RiceModel\.findEntry\(pluginConfig,\s*pluginId\)/);
+  assert.doesNotMatch(service, /shell\.shellConfig/);
 });
 
 test('rice transparency is reapplied after stock config updates finish', () => {
   const service = source('Service.qml');
   assert.match(service, /onPresetChanged:\s*Qt\.callLater\(root\.applyBarMode\)/);
   assert.match(service, /onRequestedTransparentChanged\(\)[\s\S]*Qt\.callLater\(root\.applyBarMode\)/);
+  assert.match(service, /ignoreUnknownSignals:\s*true/);
 });
 
 test('stock transparency capture survives a bar rebind', () => {
@@ -54,9 +63,30 @@ test('stock transparency capture survives a bar rebind', () => {
   assert.doesNotMatch(service, /onBarChanged:[\s\S]{0,120}stockStateCaptured\s*=\s*false/);
 });
 
-test('visible settings control participates in Rice Bar surface geometry', () => {
+test('transparency writes are guarded and fall back to the public bar CLI', () => {
   const service = source('Service.qml');
-  assert.doesNotMatch(service, /(?:pillRects|islandRects)\([^\n]*pluginId/);
+  assert.match(service, /setRequestedTransparency/);
+  assert.match(service, /omarchy["'][\s\S]{0,80}bar/);
+  assert.match(service, /transparent/);
+  assert.match(service, /hasBarProp/);
+  assert.match(service, /foregroundAnimationEnabled/);
+});
+
+test('geometry is probed from the host object tree instead of bar.moduleSlots', () => {
+  const widget = source('BarWidget.qml');
+  assert.match(widget, /GeometryProbe/);
+  assert.match(widget, /geometryForScreen/);
+  assert.match(widget, /probedGeometry/);
+  assert.match(widget, /trayLeaves/);
+  const probe = source('GeometryProbe.js');
+  assert.match(probe, /isModuleSlot/);
+  assert.match(probe, /geometryFromOrigin/);
+  assert.match(probe, /moduleSlots/);
+});
+
+test('visible settings control participates in Rice Bar surface geometry', () => {
+  const chrome = source('RiceChrome.qml');
+  assert.doesNotMatch(chrome, /(?:pillRects|islandRects)\([^\n]*pluginId/);
 });
 
 test('settings control uses the rice-bowl glyph and never replaces Omarchy branding', () => {
@@ -71,17 +101,18 @@ test('settings control uses the rice-bowl glyph and never replaces Omarchy brand
 });
 
 test('pills collect per-icon tray leaves from the stock overlay', () => {
-  const service = source('Service.qml');
-  assert.match(service, /omarchy\.tray/);
-  assert.match(service, /slotLeaves/);
-  assert.match(service, /leaves:/);
-  assert.match(service, /var separated = RiceModel\.separateRects\(rects, axis, 2\)[\s\S]{0,180}RiceModel\.balanceMenuPill\(separated, axis\)/);
+  const widget = source('BarWidget.qml');
+  assert.match(widget, /omarchy\.tray/);
+  assert.match(widget, /gatherSlotSized/);
+  assert.match(widget, /trayLeaves/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /var separated = RiceModel\.separateRects\(rects, axis, 2\)[\s\S]{0,180}RiceModel\.balanceMenuPill\(separated, axis\)/);
 });
 
 test('all selectable presets are exposed by the panel and delegated to paint recipes', () => {
-  const service = source('Service.qml');
+  const chrome = source('RiceChrome.qml');
   const panel = source('RicePanel.qml');
-  assert.match(service, /RiceModel\.paintRecipe\(preset\)/);
+  assert.match(chrome, /RiceModel\.paintRecipe\(preset\)/);
   for (const preset of [
     'omarchy', 'islands', 'pills', 'material', 'outline',
     'rail', 'bracket', 'glow', 'powerline', 'mono', 'minimal'
@@ -114,91 +145,93 @@ test('appearance controls are disabled only for the unmodified Default preset', 
 });
 
 test('renderer derives adaptive contrast surfaces from reactive Omarchy theme colors', () => {
-  const service = source('Service.qml');
-  assert.match(service, /RiceModel\.contrastSurface\([\s\S]{0,100}Color\.bar\.background,\s*Color\.bar\.text,\s*Color\.accent\)/);
-  assert.match(service, /RiceModel\.visibleAlpha\(root\.live\.opacity,\s*0\.32\)/);
-  assert.match(service, /readonly property color adaptiveSurface:/);
-  assert.match(service, /readonly property color adaptiveAccent:/);
-  assert.match(service, /bar\.transparentForeground\s*=\s*root\.readableForeground/);
-  assert.match(service, /readonly property var contrastSurfaces:/);
-  assert.match(service, /RiceModel\.readableCompositePlan\([\s\S]{0,180}contrastSurfaces/);
-  assert.match(service, /readonly property real surfaceAlpha:\s*contrastPlan\.alpha/);
-  assert.match(service, /onReadableForegroundChanged:\s*Qt\.callLater\(root\.useThemeForeground\)/);
-  assert.match(service, /function onBackgroundChanged\(\)\s*\{\s*root\.useThemeForeground\(\)\s*\}/);
-  assert.match(service, /target:\s*Color[\s\S]{0,120}function onAccentChanged\(\)\s*\{\s*root\.useThemeForeground\(\)\s*\}/);
-  assert.match(service, /id:\s*sparseBackplates/);
-  assert.match(service, /model:\s*root\.recipe\.decoration\s*===\s*["']rail["'][\s\S]{0,160}bracket[\s\S]{0,160}minimal[\s\S]{0,120}\?\s*riceWindow\.paintRects\s*:\s*\[\]/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /RiceModel\.contrastSurface\([\s\S]{0,100}Color\.bar\.background,\s*Color\.bar\.text,\s*Color\.accent\)/);
+  assert.match(chrome, /RiceModel\.visibleAlpha\(live\.opacity,\s*0\.32\)/);
+  assert.match(chrome, /readonly property color adaptiveSurface:/);
+  assert.match(chrome, /readonly property color adaptiveAccent:/);
+  assert.match(chrome, /readonly property var contrastSurfaces:/);
+  assert.match(chrome, /RiceModel\.readableCompositePlan\([\s\S]{0,180}contrastSurfaces/);
+  assert.match(chrome, /readonly property real surfaceAlpha:\s*contrastPlan\.alpha/);
+  assert.match(chrome, /id:\s*sparseBackplates/);
+  assert.match(chrome, /model:\s*riceWindow\.recipe\.decoration\s*===\s*["']rail["'][\s\S]{0,160}bracket[\s\S]{0,160}minimal[\s\S]{0,120}\?\s*riceWindow\.paintRects\s*:\s*\[\]/);
 });
 
 test('every filled recipe uses the contrast-planned alpha for its actual painted surface', () => {
-  const service = source('Service.qml');
-  assert.match(service, /if \(material\) return root\.colorWithAlpha\(root\.materialSurface,\s*alpha\)/);
-  assert.match(service, /if \(outline\) return root\.colorWithAlpha\(root\.adaptiveSurface,\s*alpha\)/);
-  assert.match(service, /if \(glow\) return root\.colorWithAlpha\(Qt\.darker\(root\.adaptiveSurface,\s*1\.28\),\s*alpha\)/);
-  assert.match(service, /if \(mono\) return root\.colorWithAlpha\(Qt\.darker\(root\.adaptiveSurface,\s*1\.38\),\s*alpha\)/);
-  assert.doesNotMatch(service, /if \(outline\)[^\n]*Math\.max\(0\.34/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /if \(material\) return riceWindow\.colorWithAlpha\(riceWindow\.materialSurface,\s*alpha\)/);
+  assert.match(chrome, /if \(outline\) return riceWindow\.colorWithAlpha\(riceWindow\.adaptiveSurface,\s*alpha\)/);
+  assert.match(chrome, /if \(glow\) return riceWindow\.colorWithAlpha\(Qt\.darker\(riceWindow\.adaptiveSurface,\s*1\.28\),\s*alpha\)/);
+  assert.match(chrome, /if \(mono\) return riceWindow\.colorWithAlpha\(Qt\.darker\(riceWindow\.adaptiveSurface,\s*1\.38\),\s*alpha\)/);
+  assert.doesNotMatch(chrome, /if \(outline\)[^\n]*Math\.max\(0\.34/);
 });
 
 test('all visual bar outlines follow the reactive Hyprland active-window border token', () => {
-  const service = source('Service.qml');
-  assert.match(service, /readonly property color themeBorderColor:\s*Color\.flatColor\([\s\S]{0,140}Color\.pick\(["']hyprland\.active-border["'],\s*Color\.accent\)/);
-  assert.match(service, /id:\s*continuousRail[\s\S]{0,120}color:\s*root\.themeBorderColor/);
-  assert.match(service, /readonly property color edgeRuleColor:\s*root\.themeBorderColor/);
-  assert.match(service, /readonly property color outlineColor:[\s\S]{0,120}return root\.themeBorderColor/);
-  assert.match(service, /strokeColor:\s*root\.themeBorderColor/);
-  assert.match(service, /readonly property color bracketColor:\s*root\.themeBorderColor/);
-  assert.doesNotMatch(service, /border\.color:\s*root\.adaptiveAccent/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /readonly property color themeBorderColor:\s*Color\.flatColor\([\s\S]{0,140}Color\.pick\(["']hyprland\.active-border["'],\s*Color\.accent\)/);
+  assert.match(chrome, /id:\s*continuousRail[\s\S]{0,120}color:\s*riceWindow\.themeBorderColor/);
+  assert.match(chrome, /readonly property color edgeRuleColor:\s*riceWindow\.themeBorderColor/);
+  assert.match(chrome, /readonly property color outlineColor:[\s\S]{0,120}return riceWindow\.themeBorderColor/);
+  assert.match(chrome, /strokeColor:\s*riceWindow\.themeBorderColor/);
+  assert.match(chrome, /readonly property color bracketColor:\s*riceWindow\.themeBorderColor/);
+  assert.doesNotMatch(chrome, /border\.color:\s*root\.adaptiveAccent/);
 });
 
 test('every style paint path honors exposed opacity radius and border controls', () => {
-  const service = source('Service.qml');
-  assert.match(service, /readonly property real opacityFactor:\s*root\.live\.opacity\s*\/\s*100/);
-  assert.match(service, /readonly property int powerlineCut:[\s\S]{0,120}root\.live\.radius/);
-  assert.match(service, /radius:\s*Math\.min\(root\.live\.radius,\s*rule\s*\/\s*2\)/);
-  assert.match(service, /if\s*\(!root\.live\.border\)\s*return\s*["']transparent["']/);
-  assert.match(service, /visible:\s*surface\.glow\s*&&\s*root\.live\.border/);
-  assert.match(service, /bracketColor:\s*root\.themeBorderColor/);
-  assert.match(service, /edgeRuleColor:\s*root\.themeBorderColor/);
-  assert.doesNotMatch(service, /Math\.max\(0\.(?:68|82),\s*opacity/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /readonly property real opacityFactor:\s*riceWindow\.live\.opacity\s*\/\s*100/);
+  assert.match(chrome, /readonly property int powerlineCut:[\s\S]{0,120}riceWindow\.live\.radius/);
+  assert.match(chrome, /radius:\s*Math\.min\(riceWindow\.live\.radius,\s*rule\s*\/\s*2\)/);
+  assert.match(chrome, /if\s*\(!riceWindow\.live\.border\)\s*return\s*["']transparent["']/);
+  assert.match(chrome, /visible:\s*surface\.glow\s*&&\s*riceWindow\.live\.border/);
+  assert.match(chrome, /bracketColor:\s*riceWindow\.themeBorderColor/);
+  assert.match(chrome, /edgeRuleColor:\s*riceWindow\.themeBorderColor/);
 });
 
 test('filled surfaces inset their background inside the visible border', () => {
-  const service = source('Service.qml');
-  assert.match(service, /id:\s*baseSurface[\s\S]{0,220}color:\s*["']transparent["']/);
-  assert.match(service, /id:\s*innerFill[\s\S]{0,180}anchors\.margins:\s*baseSurface\.border\.width/);
-  assert.match(service, /id:\s*innerFill[\s\S]{0,220}color:\s*surface\.fillColor/);
-  assert.doesNotMatch(service, /id:\s*baseSurface[\s\S]{0,220}color:\s*surface\.fillColor/);
-  assert.match(service, /ShapePath\s*\{[\s\S]{0,180}strokeWidth:\s*root\.live\.border\s*\?\s*1\s*:\s*0[\s\S]{0,180}fillColor:\s*surface\.fillColor/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /id:\s*baseSurface[\s\S]{0,220}color:\s*["']transparent["']/);
+  assert.match(chrome, /id:\s*innerFill[\s\S]{0,180}anchors\.margins:\s*baseSurface\.border\.width/);
+  assert.match(chrome, /id:\s*innerFill[\s\S]{0,220}color:\s*surface\.fillColor/);
+  assert.doesNotMatch(chrome, /id:\s*baseSurface[\s\S]{0,220}color:\s*surface\.fillColor/);
+  assert.match(chrome, /ShapePath\s*\{[\s\S]{0,180}strokeWidth:\s*riceWindow\.live\.border\s*\?\s*1\s*:\s*0[\s\S]{0,180}fillColor:\s*surface\.fillColor/);
 });
 
 test('sparse readability backplates are instantiated only for sparse styles', () => {
-  const service = source('Service.qml');
-  assert.match(service, /id:\s*sparseBackplates[\s\S]{0,220}model:\s*root\.recipe\.decoration\s*===\s*["']rail["'][\s\S]{0,180}\?\s*riceWindow\.paintRects\s*:\s*\[\]/);
-  assert.doesNotMatch(service, /id:\s*sparseBackplates\s*\n\s*model:\s*riceWindow\.paintRects/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /id:\s*sparseBackplates[\s\S]{0,220}model:\s*riceWindow\.recipe\.decoration\s*===\s*["']rail["'][\s\S]{0,180}\?\s*riceWindow\.paintRects\s*:\s*\[\]/);
+  assert.doesNotMatch(chrome, /id:\s*sparseBackplates\s*\n\s*model:\s*riceWindow\.paintRects/);
 });
 
 test('overlay samples geometry imperatively instead of binding mapToItem into PanelWindow geometry', () => {
-  const service = source('Service.qml');
-  assert.doesNotMatch(service, /readonly property var geometry:/);
-  assert.doesNotMatch(service, /readonly property var widgetGeometry:\s*root\.geometryForScreen/);
-  assert.match(service, /property var widgetGeometry:\s*\[\]/);
-  assert.match(service, /onTriggered:\s*riceWindow\.widgetGeometry\s*=\s*root\.geometryForScreen/);
+  const widget = source('BarWidget.qml');
+  assert.match(widget, /property var probedGeometry:\s*\[\]/);
+  assert.match(widget, /onTriggered:\s*root\.probeGeometry\(\)/);
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /property var widgetGeometry:\s*\[\]/);
 });
 
 test('special styles are passive paint decorations over section geometry', () => {
+  const chrome = source('RiceChrome.qml');
+  assert.match(chrome, /RiceModel\.paintRecipe/);
+  assert.match(chrome, /decoration\s*===\s*["']material["']/);
+  assert.match(chrome, /decoration\s*===\s*["']outline["']/);
+  assert.match(chrome, /decoration\s*===\s*["']rail["']/);
+  assert.match(chrome, /decoration\s*===\s*["']bracket["']/);
+  assert.match(chrome, /decoration\s*===\s*["']glow["']/);
+  assert.match(chrome, /decoration\s*===\s*["']powerline["']/);
+  assert.match(chrome, /decoration\s*===\s*["']mono["']/);
+  assert.doesNotMatch(chrome, /WlrKeyboardFocus\.Exclusive|MouseArea|TapHandler/);
+});
+
+test('IPC panel actions prefer the scoped shell summon API', () => {
   const service = source('Service.qml');
-  assert.match(service, /RiceModel\.paintRecipe/);
-  assert.match(service, /decoration\s*===\s*["']material["']/);
-  assert.match(service, /decoration\s*===\s*["']outline["']/);
-  assert.match(service, /decoration\s*===\s*["']rail["']/);
-  assert.match(service, /decoration\s*===\s*["']bracket["']/);
-  assert.match(service, /decoration\s*===\s*["']glow["']/);
-  assert.match(service, /decoration\s*===\s*["']powerline["']/);
-  assert.match(service, /decoration\s*===\s*["']mono["']/);
-  assert.doesNotMatch(service, /WlrKeyboardFocus\.Exclusive|MouseArea|TapHandler/);
+  assert.match(service, /shell\.summon\(pluginId\)/);
+  assert.match(service, /shell\.hide\(pluginId\)/);
+  assert.match(service, /shell\.toggle\(pluginId\)/);
 });
 
 test('Glass is absent from every selectable and paint source', () => {
-  for (const name of ['manifest.json', 'RicePanel.qml', 'Service.qml', 'README.md'])
+  for (const name of ['manifest.json', 'RicePanel.qml', 'Service.qml', 'RiceChrome.qml', 'README.md'])
     assert.doesNotMatch(source(name), /glass/i, name);
 });

@@ -328,6 +328,13 @@ function visibleWidgets(items, controllerId) {
   })
 }
 
+function configFromShell(shell) {
+  if (!shell || typeof shell !== "object") return null
+  if (shell.shellConfig && typeof shell.shellConfig === "object") return shell.shellConfig
+  if (shell.barConfig && typeof shell.barConfig === "object") return { bar: shell.barConfig }
+  return null
+}
+
 function findEntry(config, id) {
   var source = config && typeof config === "object" ? config : {}
   var layout = source.bar && source.bar.layout && typeof source.bar.layout === "object"
@@ -565,6 +572,7 @@ if (typeof module !== "undefined" && module.exports) {
     resetPreset: resetPreset,
     visibleWidgets: visibleWidgets,
     findEntry: findEntry,
+    configFromShell: configFromShell,
     islandRects: islandRects,
     pillItems: pillItems,
     uniqueByPosition: uniqueByPosition,
