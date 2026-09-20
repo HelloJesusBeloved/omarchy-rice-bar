@@ -1,6 +1,6 @@
 # Rice Bar
 
-**Disclaimer: I asked Grok to update (this repo)[https://github.com/jcarcinogen/omarchy-rice-bar] to be compatible with Omarchy 4.0.4, since in that version it uses a sandboxing method for plugins that makes omarchy-rice-bar no longer work. It did update it, and it does now works and I use it, but use at your own risk.**
+## **Disclaimer: I asked Grok to update [this repo](https://github.com/jcarcinogen/omarchy-rice-bar) to be compatible with Omarchy 4.0.4, since in that version it uses a sandboxing method for plugins that makes omarchy-rice-bar no longer work. It did update it, and it does now works and I use it, but use at your own risk.**
 
 Theme-aware visual presets for the **stock Omarchy Quattro bar**.
 
