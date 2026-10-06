@@ -171,6 +171,38 @@ function geometryForScreen(source, screenName, trayLeavesFn) {
   return geometryFromOrigin(source, trayLeavesFn)
 }
 
+function isBarHidden(origin) {
+  if (!origin) return false
+  try {
+    if (origin.bar && origin.bar.barHidden === true) return true
+  } catch (error) {}
+  var chain = parentChain(origin, 28)
+  for (var i = 0; i < chain.length; i++) {
+    var item = chain[i]
+    if (!item) continue
+    try {
+      if (item.barHidden === true) return true
+      if (item.bar && item.bar.barHidden === true) return true
+    } catch (error) {}
+  }
+  return false
+}
+
+function windowIsParked(window, position, barSize) {
+  if (!window) return false
+  var size = Number(barSize) || 26
+  var pos = String(position || "top")
+  var x = Number(window.x)
+  var y = Number(window.y)
+  if (pos === "top" && y <= 1 - size) return true
+  if (pos === "left" && x <= 1 - size) return true
+  var screen = window.screen
+  if (!screen) return false
+  if (pos === "bottom" && y >= Number(screen.height) - 1) return true
+  if (pos === "right" && x >= Number(screen.width) - 1) return true
+  return false
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     childList: childList,
@@ -185,6 +217,8 @@ if (typeof module !== "undefined" && module.exports) {
     geometryFromModuleSlots: geometryFromModuleSlots,
     geometryFromOrigin: geometryFromOrigin,
     geometryForScreen: geometryForScreen,
-    screenNameFrom: screenNameFrom
+    screenNameFrom: screenNameFrom,
+    isBarHidden: isBarHidden,
+    windowIsParked: windowIsParked
   }
 }

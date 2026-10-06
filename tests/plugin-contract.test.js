@@ -13,7 +13,7 @@ test('manifest declares a stock-bar overlay with selectable presets', () => {
   const manifest = JSON.parse(source('manifest.json'));
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.id, 'io.github.jcarcinogen.rice-bar');
-  assert.equal(manifest.version, '0.5.0');
+  assert.equal(manifest.version, '0.5.1');
   assert.deepEqual(manifest.kinds, ['service', 'bar-widget']);
   assert.equal(manifest.entryPoints.service, 'Service.qml');
   assert.equal(manifest.entryPoints.barWidget, 'BarWidget.qml');
@@ -229,6 +229,24 @@ test('IPC panel actions prefer the scoped shell summon API', () => {
   assert.match(service, /shell\.summon\(pluginId\)/);
   assert.match(service, /shell\.hide\(pluginId\)/);
   assert.match(service, /shell\.toggle\(pluginId\)/);
+});
+
+test('overlay unmaps and parks when the stock bar is hidden', () => {
+  const widget = source('BarWidget.qml');
+  const chrome = source('RiceChrome.qml');
+  assert.match(widget, /stockBarHidden/);
+  assert.match(widget, /GeometryProbe\.isBarHidden\(root\)/);
+  assert.match(widget, /GeometryProbe\.windowIsParked/);
+  assert.match(widget, /onBarHiddenChanged/);
+  assert.match(widget, /onStockBarHiddenChanged/);
+  assert.match(widget, /chrome\.barHidden = Qt\.binding\(function\(\) \{ return root\.stockBarHidden \|\| !root\.barSurfaceVisible \}\)/);
+  assert.match(chrome, /effectivelyHidden/);
+  assert.match(chrome, /bar-off/);
+  assert.match(chrome, /flagHidden/);
+  assert.match(chrome, /margins\s*\{[\s\S]*effectivelyHidden && position === "top" \? -Math\.max\(span, 1\)/);
+  assert.match(chrome, /visible:\s*riceActive && !effectivelyHidden/);
+  assert.match(chrome, /opacity:\s*effectivelyHidden \? 0 : 1/);
+  assert.match(chrome, /readonly property var paintRects:\s*effectivelyHidden \? \[\] : rectsForPreset/);
 });
 
 test('Glass is absent from every selectable and paint source', () => {

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1 — 2026-10-04
+
+Hide rice chrome when the stock bar is hidden.
+
+Omarchy parks `omarchy-bar` off-screen on Super+Shift+Space without unmapping
+it. Rice Bar's overlay is a separate `WlrLayer.Bottom` window, so island,
+outline, and pill chrome stayed on screen around the empty icon slots.
+
+- Follow `bar.barHidden`, the host object tree, and off-screen parking.
+- Watch the same `bar-off` flag the stock bar uses.
+- Unmap the overlay, drop paint rects, and park it with matching negative margins.
+
 ## 0.5.0 — 2026-09-20
 
 Rebuild for Omarchy 4.0.3+ / 4.0.4.

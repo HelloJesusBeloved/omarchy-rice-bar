@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Shapes
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
@@ -18,12 +19,14 @@ PanelWindow {
   property int barSize: 26
   property bool riceActive: true
   property bool barHidden: false
+  property bool flagHidden: false
+  readonly property bool effectivelyHidden: barHidden || flagHidden
 
   readonly property var recipe: RiceModel.paintRecipe(preset)
   readonly property bool vertical: position === "left" || position === "right"
   readonly property bool edgeVertical: vertical
   readonly property int span: Math.max(0, barSize)
-  readonly property var paintRects: rectsForPreset(preset, widgetGeometry)
+  readonly property var paintRects: effectivelyHidden ? [] : rectsForPreset(preset, widgetGeometry)
   readonly property color adaptiveSurface: RiceModel.contrastSurface(
     Color.bar.background, Color.bar.text, Color.accent)
   readonly property color adaptiveAccent: RiceModel.contrastColor(
@@ -75,7 +78,8 @@ PanelWindow {
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
   surfaceFormat.opaque: false
-  visible: riceActive && !barHidden && span > 0 && !remapGuard.remapping && paintRects.length > 0
+  visible: riceActive && !effectivelyHidden && span > 0 && !remapGuard.remapping && paintRects.length > 0
+  opacity: effectivelyHidden ? 0 : 1
   implicitWidth: edgeVertical ? span : 0
   implicitHeight: edgeVertical ? 0 : span
 
@@ -84,6 +88,13 @@ PanelWindow {
     bottom: position === "bottom" || edgeVertical
     left: position === "left" || !edgeVertical
     right: position === "right" || !edgeVertical
+  }
+
+  margins {
+    top: effectivelyHidden && position === "top" ? -Math.max(span, 1) : 0
+    bottom: effectivelyHidden && position === "bottom" ? -Math.max(span, 1) : 0
+    left: effectivelyHidden && position === "left" ? -Math.max(span, 1) : 0
+    right: effectivelyHidden && position === "right" ? -Math.max(span, 1) : 0
   }
 
   ScreenMoveRemap {
@@ -96,6 +107,24 @@ PanelWindow {
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
   mask: Region {}
+
+  Process {
+    id: barHiddenProbe
+    running: true
+    command: ["bash", "-c", "[[ -f $HOME/.local/state/omarchy/toggles/bar-off ]] && echo yes || echo no"]
+    stdout: SplitParser {
+      onRead: function(line) {
+        riceWindow.flagHidden = String(line).trim() === "yes"
+      }
+    }
+  }
+
+  FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/toggles"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: barHiddenProbe.running = true
+  }
 
   Rectangle {
     id: continuousRail

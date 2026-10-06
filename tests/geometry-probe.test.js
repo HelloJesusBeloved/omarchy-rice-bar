@@ -85,6 +85,28 @@ test('scalar PluginBarStateApi-shaped objects produce no geometry', () => {
   assert.deepEqual(GeometryProbe.geometryFromOrigin(null), []);
 });
 
+test('detects a hidden bar from origin.bar, the parent chain, and off-screen parking', () => {
+  assert.equal(GeometryProbe.isBarHidden(null), false);
+  assert.equal(GeometryProbe.isBarHidden({ bar: { barHidden: false } }), false);
+  assert.equal(GeometryProbe.isBarHidden({ bar: { barHidden: true } }), true);
+
+  const leaf = { x: 0, y: 0, width: 27, height: 26 };
+  const host = { barHidden: true, children: [leaf] };
+  leaf.parent = host;
+  assert.equal(GeometryProbe.isBarHidden(leaf), true);
+
+  const nested = { x: 0 };
+  const mid = { bar: { barHidden: true }, children: [nested] };
+  nested.parent = mid;
+  assert.equal(GeometryProbe.isBarHidden(nested), true);
+
+  assert.equal(GeometryProbe.windowIsParked({ x: 0, y: -26 }, 'top', 26), true);
+  assert.equal(GeometryProbe.windowIsParked({ x: 0, y: 0 }, 'top', 26), false);
+  assert.equal(GeometryProbe.windowIsParked({ x: -42, y: 0 }, 'left', 42), true);
+  assert.equal(GeometryProbe.windowIsParked({ x: 0, y: 1080, screen: { height: 1080, width: 1920 } }, 'bottom', 26), true);
+  assert.equal(GeometryProbe.windowIsParked({ x: 1920, y: 0, screen: { height: 1080, width: 1920 } }, 'right', 26), true);
+});
+
 test('configFromShell prefers shellConfig and wraps barConfig otherwise', () => {
   const RiceModel = require('../RiceModel.js');
   const id = 'io.github.jcarcinogen.rice-bar';
