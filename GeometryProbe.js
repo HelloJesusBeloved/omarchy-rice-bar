@@ -174,18 +174,10 @@ function geometryForScreen(source, screenName, trayLeavesFn) {
 function isBarHidden(origin) {
   if (!origin) return false
   try {
-    if (origin.bar && origin.bar.barHidden === true) return true
-  } catch (error) {}
-  var chain = parentChain(origin, 28)
-  for (var i = 0; i < chain.length; i++) {
-    var item = chain[i]
-    if (!item) continue
-    try {
-      if (item.barHidden === true) return true
-      if (item.bar && item.bar.barHidden === true) return true
-    } catch (error) {}
+    return !!(origin.bar && origin.bar.barHidden === true)
+  } catch (error) {
+    return false
   }
-  return false
 }
 
 function windowIsParked(window, position, barSize) {

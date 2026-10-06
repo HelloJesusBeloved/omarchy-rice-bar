@@ -1,6 +1,17 @@
 # Changelog
 
+## 0.5.2 — 2026-10-05
+
+Fix 0.5.1 hiding chrome even when the bar is shown.
+
+- Drop the overlay `Process` / `FileView` watcher. Spawning those from the
+  bar-widget PanelWindow could fail the loader, so Rice Bar painted nothing.
+- Hide only when the stock `bar.barHidden` flag is strictly true.
+- Do not treat ancestor `barHidden` properties or off-screen coordinates as
+  hidden — those false positives left island/outline chrome permanently gone.
+
 ## 0.5.1 — 2026-10-04
+
 
 Hide rice chrome when the stock bar is hidden.
 

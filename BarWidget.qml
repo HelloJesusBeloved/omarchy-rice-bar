@@ -20,18 +20,8 @@ BarWidget {
   readonly property int resolvedBarSize: bar && Number(bar.barSize) > 0
     ? Number(bar.barSize)
     : ((barPosition === "left" || barPosition === "right") ? Style.bar.sizeVertical : Style.bar.sizeHorizontal)
-  readonly property bool stockBarHidden: {
-    if (GeometryProbe.isBarHidden(root)) return true
-    if (root.bar && root.bar.barHidden === true) return true
-    try {
-      var window = root.QsWindow ? root.QsWindow.window : null
-      if (GeometryProbe.windowIsParked(window, root.barPosition, root.resolvedBarSize))
-        return true
-    } catch (error) {}
-    return false
-  }
+  readonly property bool stockBarHidden: bar && bar.barHidden === true
   readonly property bool barSurfaceVisible: {
-    if (root.stockBarHidden) return false
     try {
       var window = root.QsWindow ? root.QsWindow.window : null
       if (window && window.visible === false) return false
@@ -107,10 +97,6 @@ BarWidget {
   }
 
   function probeGeometry() {
-    if (root.stockBarHidden) {
-      probedGeometry = []
-      return
-    }
     var screenName = GeometryProbe.screenNameFrom(root)
     probedGeometry = GeometryProbe.geometryForScreen(root, screenName, trayLeaves)
   }
@@ -120,24 +106,11 @@ BarWidget {
 
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
-  onStockBarHiddenChanged: {
-    if (root.stockBarHidden) probedGeometry = []
-    else root.probeGeometry()
-  }
-
-  Connections {
-    target: root.bar
-    ignoreUnknownSignals: true
-    function onBarHiddenChanged() {
-      if (root.bar && root.bar.barHidden === true) root.probedGeometry = []
-      else root.probeGeometry()
-    }
-  }
 
   Timer {
     interval: 250
     repeat: true
-    running: root.riceActive && root.barSurfaceVisible
+    running: root.riceActive
     triggeredOnStart: true
     onTriggered: root.probeGeometry()
   }
@@ -155,7 +128,7 @@ BarWidget {
       chrome.position = Qt.binding(function() { return root.barPosition })
       chrome.barSize = Qt.binding(function() { return root.resolvedBarSize })
       chrome.riceActive = Qt.binding(function() { return root.riceActive })
-      chrome.barHidden = Qt.binding(function() { return root.stockBarHidden || !root.barSurfaceVisible })
+      chrome.barHidden = Qt.binding(function() { return root.stockBarHidden })
       try {
         var window = root.QsWindow ? root.QsWindow.window : null
         if (window && window.screen) chrome.screen = window.screen
