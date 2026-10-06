@@ -4,6 +4,7 @@ import qs.Commons
 import qs.Ui
 import "RiceModel.js" as RiceModel
 import "GeometryProbe.js" as GeometryProbe
+import "RiceBridge.js" as RiceBridge
 
 BarWidget {
   id: root
@@ -13,6 +14,9 @@ BarWidget {
   readonly property bool popoutSwitchClosing: panelItem ? panelItem.popoutSwitchClosing === true : false
   property var panelItem: null
   property var probedGeometry: []
+  property bool stockBarHidden: false
+  property bool hostedInBar: false
+  property bool canHost: false
 
   readonly property var live: RiceModel.snapshot(root.settings)
   readonly property bool riceActive: live.preset !== "omarchy"
@@ -20,14 +24,6 @@ BarWidget {
   readonly property int resolvedBarSize: bar && Number(bar.barSize) > 0
     ? Number(bar.barSize)
     : ((barPosition === "left" || barPosition === "right") ? Style.bar.sizeVertical : Style.bar.sizeHorizontal)
-  readonly property bool stockBarHidden: bar && bar.barHidden === true
-  readonly property bool barSurfaceVisible: {
-    try {
-      var window = root.QsWindow ? root.QsWindow.window : null
-      if (window && window.visible === false) return false
-    } catch (error) {}
-    return root.visible !== false
-  }
 
   function open() { if (panelItem) panelItem.open() }
   function close() { if (panelItem) panelItem.close() }
@@ -96,6 +92,34 @@ BarWidget {
     return leaves
   }
 
+  function bindChrome(chrome) {
+    if (!chrome) return
+    chrome.live = Qt.binding(function() { return root.live })
+    chrome.preset = Qt.binding(function() { return root.live.preset })
+    chrome.widgetGeometry = Qt.binding(function() { return root.probedGeometry })
+    chrome.position = Qt.binding(function() { return root.barPosition })
+    chrome.barSize = Qt.binding(function() { return root.resolvedBarSize })
+    chrome.riceActive = Qt.binding(function() { return root.riceActive })
+    chrome.barHidden = Qt.binding(function() { return root.stockBarHidden })
+  }
+
+  function resolveHost() {
+    root.canHost = !!GeometryProbe.findChromeHost(root)
+  }
+
+  function refreshHidden() {
+    var hidden = false
+    try { if (RiceBridge.isHidden()) hidden = true } catch (error) {}
+    try { if (root.bar && root.bar.barHidden === true) hidden = true } catch (error) {}
+    try { if (GeometryProbe.isBarHidden(root)) hidden = true } catch (error) {}
+    try {
+      var window = root.QsWindow ? root.QsWindow.window : null
+      if (GeometryProbe.windowIsParked(window, root.barPosition, root.resolvedBarSize))
+        hidden = true
+    } catch (error) {}
+    if (root.stockBarHidden !== hidden) root.stockBarHidden = hidden
+  }
+
   function probeGeometry() {
     var screenName = GeometryProbe.screenNameFrom(root)
     probedGeometry = GeometryProbe.geometryForScreen(root, screenName, trayLeaves)
@@ -104,36 +128,62 @@ BarWidget {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  onBarChanged: injectPanel()
-  onSettingsChanged: injectPanel()
+  function hostChrome(chrome) {
+    if (!chrome) return false
+    var host = GeometryProbe.findChromeHost(root)
+    if (!host) return false
+    try {
+      chrome.parent = host
+      chrome.anchors.fill = host
+      chrome.z = -10000
+      chrome.enabled = false
+      return true
+    } catch (error) {
+      return false
+    }
+  }
 
   Timer {
     interval: 250
     repeat: true
     running: root.riceActive
     triggeredOnStart: true
-    onTriggered: root.probeGeometry()
+    onTriggered: {
+      if (!root.hostedInBar) root.resolveHost()
+      root.refreshHidden()
+      root.probeGeometry()
+    }
+  }
+
+  Connections {
+    target: root.bar
+    ignoreUnknownSignals: true
+    function onBarHiddenChanged() { root.refreshHidden() }
+  }
+
+  onBarChanged: {
+    injectPanel()
+    resolveHost()
+  }
+  onSettingsChanged: injectPanel()
+  Component.onCompleted: resolveHost()
+
+  Loader {
+    id: hostedLoader
+    active: root.canHost
+    source: Qt.resolvedUrl("RiceChrome.qml")
+    onLoaded: {
+      root.bindChrome(item)
+      root.hostedInBar = root.hostChrome(item)
+      if (!root.hostedInBar) root.canHost = false
+    }
   }
 
   Loader {
-    id: chromeLoader
-    active: true
-    source: Qt.resolvedUrl("RiceChrome.qml")
-    onLoaded: {
-      var chrome = item
-      if (!chrome) return
-      chrome.live = Qt.binding(function() { return root.live })
-      chrome.preset = Qt.binding(function() { return root.live.preset })
-      chrome.widgetGeometry = Qt.binding(function() { return root.probedGeometry })
-      chrome.position = Qt.binding(function() { return root.barPosition })
-      chrome.barSize = Qt.binding(function() { return root.resolvedBarSize })
-      chrome.riceActive = Qt.binding(function() { return root.riceActive })
-      chrome.barHidden = Qt.binding(function() { return root.stockBarHidden })
-      try {
-        var window = root.QsWindow ? root.QsWindow.window : null
-        if (window && window.screen) chrome.screen = window.screen
-      } catch (error) {}
-    }
+    id: overlayLoader
+    active: !root.canHost
+    source: Qt.resolvedUrl("RiceOverlay.qml")
+    onLoaded: root.bindChrome(item)
   }
 
   Loader {

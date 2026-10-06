@@ -1,6 +1,18 @@
 # Changelog
 
+## 0.5.3 — 2026-10-05
+
+Hide overlay chrome with the stock bar without breaking paint.
+
+- Parent rice chrome into the stock bar window so Super+Shift+Space parks
+  outlines with the widgets. No second layer left on screen.
+- The service publishes `bar.barHidden` through a shared `.pragma library`
+  so the overlay fallback still unmaps if reparenting is blocked.
+- Do not spawn Process/FileView from the paint surface (that is what made
+  0.5.1 paint nothing).
+
 ## 0.5.2 — 2026-10-05
+
 
 Fix 0.5.1 hiding chrome even when the bar is shown.
 

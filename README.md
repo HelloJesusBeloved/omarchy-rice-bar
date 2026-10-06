@@ -12,11 +12,7 @@ Rice Bar follows one rule:
 
 It keeps `omarchy.bar` active and leaves Omarchy's official logo, workspaces, indicators, clock, tray, panels, gestures, keyboard navigation, drag/reorder behavior, multi-monitor routing, and shell configuration under Omarchy's control. A passive bottom-layer surface draws behind the live stock widgets and never receives pointer or keyboard input.
 
-**0.5.0** is rebuilt for **Omarchy 4.0.3+ / 4.0.4**. The 4.0.3 plugin sandbox stopped handing third-party plugins the live `Bar` QObject, which is why 0.4.2 painted nothing (`bar.moduleSlots` and transparency props are gone from the scoped facade). This release probes widget geometry from the host object tree the widget still lives in, reads settings from `shell.barConfig`, and toggles stock-bar transparency through the public `omarchy bar transparent` CLI.
-
-**0.5.1** hides overlay chrome when the stock bar is hidden (Super+Shift+Space). **0.5.0** is rebuilt for **Omarchy 4.0.3+ / 4.0.4**. The 4.0.3 plugin sandbox stopped handing third-party plugins the live `Bar` QObject, which is why 0.4.2 painted nothing (`bar.moduleSlots` and transparency props are gone from the scoped facade). This release probes widget geometry from the host object tree the widget still lives in, reads settings from `shell.barConfig`, and toggles stock-bar transparency through the public `omarchy bar transparent` CLI.
-
-**0.5.2** paints again after 0.5.1 hid chrome for good. Overlay hide now follows only the stock `bar.barHidden` flag (Super+Shift+Space). **0.5.0** is rebuilt for **Omarchy 4.0.3+ / 4.0.4**. The 4.0.3 plugin sandbox stopped handing third-party plugins the live `Bar` QObject, which is why 0.4.2 painted nothing (`bar.moduleSlots` and transparency props are gone from the scoped facade). This release probes widget geometry from the host object tree the widget still lives in, reads settings from `shell.barConfig`, and toggles stock-bar transparency through the public `omarchy bar transparent` CLI.
+**0.5.3** hides overlay chrome with the stock bar: paint is parented into the bar window so Super+Shift+Space parks outlines with the widgets. **0.5.0** is rebuilt for **Omarchy 4.0.3+ / 4.0.4**. The 4.0.3 plugin sandbox stopped handing third-party plugins the live `Bar` QObject, which is why 0.4.2 painted nothing (`bar.moduleSlots` and transparency props are gone from the scoped facade). This release probes widget geometry from the host object tree the widget still lives in, reads settings from `shell.barConfig`, and toggles stock-bar transparency through the public `omarchy bar transparent` CLI.
 
 ## Styles
 
@@ -64,7 +60,7 @@ All Rice Bar styles bind to Omarchy's active `Color.bar.background`, `Color.bar.
 omarchy plugin add https://github.com/HelloJesusBeloved/omarchy-rice-bar.git --enable
 ```
 
-From a downloaded 0.5.2 folder:
+From a downloaded 0.5.3 folder:
 
 ```bash
 mkdir -p ~/.config/omarchy/plugins/io.github.jcarcinogen.rice-bar
@@ -152,7 +148,7 @@ Rice Bar's overlay uses `WlrLayer.Bottom` with an empty input region. It does no
 - Widget drag/reorder
 - Bar edge movement
 - Transparent-mode gesture
-- Bar hide/show and panel access while hidden. Overlay chrome unmaps when `bar.barHidden` is true so island, outline, and pill surfaces do not remain on screen.
+- Bar hide/show and panel access while hidden. Overlay chrome is parented into the stock bar window so Super+Shift+Space parks island, outline, and pill surfaces with the widgets.
 - Multi-monitor widget instances and focused-monitor routing
 
 The release acceptance contract is the official [Omarchy Top Bar manual](https://omarchy.org/manual/the-top-bar).

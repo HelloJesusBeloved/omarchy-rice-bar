@@ -85,18 +85,32 @@ test('scalar PluginBarStateApi-shaped objects produce no geometry', () => {
   assert.deepEqual(GeometryProbe.geometryFromOrigin(null), []);
 });
 
-test('detects a hidden bar only from origin.bar.barHidden, never from ancestor walks', () => {
+test('detects a hidden bar from origin.bar and bar-shaped ancestors, not plain parents', () => {
   assert.equal(GeometryProbe.isBarHidden(null), false);
   assert.equal(GeometryProbe.isBarHidden({ bar: { barHidden: false } }), false);
   assert.equal(GeometryProbe.isBarHidden({ bar: { barHidden: true } }), true);
 
   const leaf = { x: 0, y: 0, width: 27, height: 26 };
-  const host = { barHidden: true, children: [leaf] };
-  leaf.parent = host;
+  const decoy = { barHidden: true, children: [leaf] };
+  leaf.parent = decoy;
   assert.equal(GeometryProbe.isBarHidden(leaf), false);
 
+  const hosted = { x: 0 };
+  const bar = { barHidden: true, position: 'top', barSize: 26, children: [hosted] };
+  hosted.parent = bar;
+  assert.equal(GeometryProbe.isBarHidden(hosted), true);
+});
+
+test('treats negative window margins as parked and finds a chrome host', () => {
+  assert.equal(GeometryProbe.windowIsParked({ margins: { top: -26 }, x: 0, y: 0 }, 'top', 26), true);
+  assert.equal(GeometryProbe.windowIsParked({ margins: { top: 0 }, x: 0, y: 0 }, 'top', 26), false);
   assert.equal(GeometryProbe.windowIsParked({ x: 0, y: -26 }, 'top', 26), true);
-  assert.equal(GeometryProbe.windowIsParked({ x: 0, y: 0 }, 'top', 26), false);
+
+  const origin = { x: 0 };
+  const content = { name: 'content' };
+  origin.QsWindow = { window: { contentItem: content } };
+  assert.equal(GeometryProbe.findChromeHost(origin), content);
+  assert.equal(GeometryProbe.findChromeHost(null), null);
 });
 
 test('configFromShell prefers shellConfig and wraps barConfig otherwise', () => {

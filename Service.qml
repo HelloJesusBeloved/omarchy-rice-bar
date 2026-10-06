@@ -4,6 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "RiceModel.js" as RiceModel
+import "RiceBridge.js" as RiceBridge
 
 // Headless singleton for Omarchy 4.0.3+ / 4.0.4.
 // IPC + stock-bar transparency. Chrome is painted by RiceChrome from the
@@ -116,6 +117,10 @@ Item {
     return shell.updateEntryInline(pluginId, next)
   }
 
+  function publishHidden() {
+    RiceBridge.setHidden(root.barHidden)
+  }
+
   function panelAction(action) {
     if (shell) {
       if (action === "open" && typeof shell.summon === "function")
@@ -139,6 +144,7 @@ Item {
 
   onBarChanged: Qt.callLater(root.applyBarMode)
   onPresetChanged: Qt.callLater(root.applyBarMode)
+  onBarHiddenChanged: root.publishHidden()
 
   Connections {
     target: root.bar
@@ -154,6 +160,7 @@ Item {
       if (root.riceActive && root.bar && root.bar.transparent === false)
         Qt.callLater(root.applyBarMode)
     }
+    function onBarHiddenChanged() { root.publishHidden() }
   }
 
   Connections {
@@ -179,6 +186,13 @@ Item {
     running: true
     repeat: false
     onTriggered: root.applyBarMode()
+  }
+
+  Timer {
+    interval: 200
+    running: true
+    repeat: true
+    onTriggered: root.publishHidden()
   }
 
   IpcHandler {
@@ -209,5 +223,6 @@ Item {
     function toggle(): void { root.panelAction("toggle") }
   }
 
+  Component.onCompleted: publishHidden()
   Component.onDestruction: restoreStockState()
 }

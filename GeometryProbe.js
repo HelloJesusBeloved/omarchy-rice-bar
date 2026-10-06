@@ -171,21 +171,47 @@ function geometryForScreen(source, screenName, trayLeavesFn) {
   return geometryFromOrigin(source, trayLeavesFn)
 }
 
-function isBarHidden(origin) {
-  if (!origin) return false
+function looksLikeBarState(item) {
+  if (!item || typeof item !== "object") return false
   try {
-    return !!(origin.bar && origin.bar.barHidden === true)
+    return item.barHidden !== undefined && item.position !== undefined
   } catch (error) {
     return false
   }
 }
 
+function isBarHidden(origin) {
+  if (!origin) return false
+  try {
+    if (origin.bar && origin.bar.barHidden === true) return true
+  } catch (error) {}
+  var chain = parentChain(origin, 28)
+  for (var i = 0; i < chain.length; i++) {
+    var item = chain[i]
+    try {
+      if (looksLikeBarState(item) && item.barHidden === true) return true
+      if (item.bar && looksLikeBarState(item.bar) && item.bar.barHidden === true) return true
+    } catch (error) {}
+  }
+  return false
+}
+
 function windowIsParked(window, position, barSize) {
   if (!window) return false
-  var size = Number(barSize) || 26
+  var size = Math.max(1, Number(barSize) || 26)
   var pos = String(position || "top")
+  try {
+    var margins = window.margins
+    if (margins) {
+      if (pos === "top" && Number(margins.top) <= 1 - size) return true
+      if (pos === "bottom" && Number(margins.bottom) <= 1 - size) return true
+      if (pos === "left" && Number(margins.left) <= 1 - size) return true
+      if (pos === "right" && Number(margins.right) <= 1 - size) return true
+    }
+  } catch (error) {}
   var x = Number(window.x)
   var y = Number(window.y)
+  if (!isFinite(x) || !isFinite(y)) return false
   if (pos === "top" && y <= 1 - size) return true
   if (pos === "left" && x <= 1 - size) return true
   var screen = window.screen
@@ -193,6 +219,24 @@ function windowIsParked(window, position, barSize) {
   if (pos === "bottom" && y >= Number(screen.height) - 1) return true
   if (pos === "right" && x >= Number(screen.width) - 1) return true
   return false
+}
+
+function findChromeHost(origin) {
+  if (!origin) return null
+  try {
+    var window = origin.QsWindow && origin.QsWindow.window
+    if (window) {
+      if (window.contentItem) return window.contentItem
+      return window
+    }
+  } catch (error) {}
+  var chain = parentChain(origin, 28)
+  for (var i = 0; i < chain.length; i++) {
+    var item = chain[i]
+    if (item && item.screen && item.screen.name)
+      return item.contentItem || item
+  }
+  return null
 }
 
 if (typeof module !== "undefined" && module.exports) {
@@ -210,7 +254,9 @@ if (typeof module !== "undefined" && module.exports) {
     geometryFromOrigin: geometryFromOrigin,
     geometryForScreen: geometryForScreen,
     screenNameFrom: screenNameFrom,
+    looksLikeBarState: looksLikeBarState,
     isBarHidden: isBarHidden,
-    windowIsParked: windowIsParked
+    windowIsParked: windowIsParked,
+    findChromeHost: findChromeHost
   }
 }

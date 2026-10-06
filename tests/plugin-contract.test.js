@@ -13,7 +13,7 @@ test('manifest declares a stock-bar overlay with selectable presets', () => {
   const manifest = JSON.parse(source('manifest.json'));
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.id, 'io.github.jcarcinogen.rice-bar');
-  assert.equal(manifest.version, '0.5.2');
+  assert.equal(manifest.version, '0.5.3');
   assert.deepEqual(manifest.kinds, ['service', 'bar-widget']);
   assert.equal(manifest.entryPoints.service, 'Service.qml');
   assert.equal(manifest.entryPoints.barWidget, 'BarWidget.qml');
@@ -29,9 +29,10 @@ test('manifest declares a stock-bar overlay with selectable presets', () => {
 test('service remains an Option A overlay instead of a replacement bar', () => {
   const manifest = JSON.parse(source('manifest.json'));
   assert.equal(manifest.kinds.includes('bar'), false);
+  const overlay = source('RiceOverlay.qml');
   const chrome = source('RiceChrome.qml');
-  assert.match(chrome, /WlrLayer\.Bottom/);
-  assert.match(chrome, /mask:\s*Region\s*\{\s*\}/);
+  assert.match(overlay, /WlrLayer\.Bottom/);
+  assert.match(overlay, /mask:\s*Region\s*\{\s*\}/);
   assert.match(chrome, /Color\.bar\.background/);
   assert.match(chrome, /Color\.accent/);
 });
@@ -39,8 +40,8 @@ test('service remains an Option A overlay instead of a replacement bar', () => {
 test('service imports the Quickshell modules required by its runtime types', () => {
   const service = source('Service.qml');
   assert.match(service, /import Quickshell\.Io/);
-  const chrome = source('RiceChrome.qml');
-  assert.match(chrome, /import Quickshell\.Wayland/);
+  const overlay = source('RiceOverlay.qml');
+  assert.match(overlay, /import Quickshell\.Wayland/);
 });
 
 test('4.0.4 settings are read from barConfig when shellConfig is absent', () => {
@@ -231,21 +232,28 @@ test('IPC panel actions prefer the scoped shell summon API', () => {
   assert.match(service, /shell\.toggle\(pluginId\)/);
 });
 
-test('overlay hides only from the stock barHidden flag and still loads without Process watchers', () => {
+test('overlay hides with the stock bar via in-window hosting and a service bridge', () => {
   const widget = source('BarWidget.qml');
   const chrome = source('RiceChrome.qml');
-  assert.match(widget, /stockBarHidden:\s*bar && bar\.barHidden === true/);
-  assert.match(widget, /chrome\.barHidden = Qt\.binding\(function\(\) \{ return root\.stockBarHidden \}\)/);
-  assert.match(chrome, /visible:\s*riceActive && !barHidden/);
-  assert.match(chrome, /readonly property var paintRects:\s*barHidden \? \[\] : rectsForPreset/);
-  assert.doesNotMatch(chrome, /Quickshell\.Io/);
-  assert.doesNotMatch(chrome, /FileView/);
-  assert.doesNotMatch(chrome, /bar-off/);
-  assert.doesNotMatch(chrome, /flagHidden|effectivelyHidden/);
-  assert.doesNotMatch(widget, /windowIsParked|isBarHidden\(root\)/);
+  const overlay = source('RiceOverlay.qml');
+  const service = source('Service.qml');
+  const bridge = source('RiceBridge.js');
+  assert.match(bridge, /\.pragma library/);
+  assert.match(service, /RiceBridge\.setHidden\(root\.barHidden\)/);
+  assert.match(widget, /RiceBridge\.isHidden\(\)/);
+  assert.match(widget, /hostChrome/);
+  assert.match(widget, /findChromeHost/);
+  assert.match(widget, /GeometryProbe\.windowIsParked/);
+  assert.match(widget, /hostedLoader/);
+  assert.match(widget, /overlayLoader/);
+  assert.match(chrome, /^Item \{/m);
+  assert.match(chrome, /enabled:\s*false/);
+  assert.doesNotMatch(chrome, /PanelWindow|Quickshell\.Io|FileView|bar-off/);
+  assert.match(overlay, /PanelWindow/);
+  assert.match(overlay, /visible:\s*rice\.riceActive && !rice\.barHidden/);
 });
 
 test('Glass is absent from every selectable and paint source', () => {
-  for (const name of ['manifest.json', 'RicePanel.qml', 'Service.qml', 'RiceChrome.qml', 'README.md'])
+  for (const name of ['manifest.json', 'RicePanel.qml', 'Service.qml', 'RiceChrome.qml', 'RiceOverlay.qml', 'README.md'])
     assert.doesNotMatch(source(name), /glass/i, name);
 });

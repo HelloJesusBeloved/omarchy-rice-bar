@@ -1,14 +1,12 @@
 import QtQuick
 import QtQuick.Shapes
-import Quickshell
-import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "RiceModel.js" as RiceModel
 
-// Passive WlrLayer.Bottom chrome. Geometry is supplied by the bar-widget
-// probe — this window never receives input.
-PanelWindow {
+// Paint-only chrome. Hosted inside the stock bar window so Super+Shift+Space
+// parks it with the widgets. RiceOverlay.qml is the independent-window fallback.
+Item {
   id: riceWindow
 
   property var live: RiceModel.snapshot({})
@@ -72,30 +70,9 @@ PanelWindow {
       : separated
   }
 
-  color: "transparent"
-  exclusionMode: ExclusionMode.Ignore
-  surfaceFormat.opaque: false
-  visible: riceActive && !barHidden && span > 0 && !remapGuard.remapping && paintRects.length > 0
-  implicitWidth: edgeVertical ? span : 0
-  implicitHeight: edgeVertical ? 0 : span
-
-  anchors {
-    top: position === "top" || edgeVertical
-    bottom: position === "bottom" || edgeVertical
-    left: position === "left" || !edgeVertical
-    right: position === "right" || !edgeVertical
-  }
-
-  ScreenMoveRemap {
-    id: remapGuard
-    window: riceWindow
-  }
-
-  WlrLayershell.namespace: "omarchy-rice-bar"
-  WlrLayershell.layer: WlrLayer.Bottom
-  WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-
-  mask: Region {}
+  enabled: false
+  clip: true
+  visible: riceActive && !barHidden && span > 0 && paintRects.length > 0
 
   Rectangle {
     id: continuousRail
